@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de LÃ¢mpadas e Sensores</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f0; padding: 20px; }
+        .container { background-color: white; margin: auto; padding: 20px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); max-width: 600px; margin-bottom: 20px; }
+        input, button, select { width: calc(100% - 20px); padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { background-color: #007bff; color: white; cursor: pointer; border: none; }
+        button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        .status-ligado { color: green; }
+        .status-desligado { color: red; }
+        #historicoAcoes, #acoes { text-align: left; }
+        .acao { margin: 5px 0; padding: 2px; border-bottom: 1px solid #eee; }
+        .medidor { border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin: 10px 0; background-color: #f9f9f9; }
+        .medidor-title { font-weight: bold; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="login" class="container">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Entrar</button>
+    <p id="loginError" style="color: red;"></p>
+</div>
+
+<div id="main" class="container hidden">
+    <h2>Tela Principal</h2>
+    <button onclick="mostrarControle()">Controle de LÃ¢mpadas</button>
+    <button onclick="mostrarSensores()">Controle de Sensores</button>
+    <button onclick="mostrarHistorico()">HistÃ³rico de AÃ§Ãµes</button>
+</div>
+
+<div id="control" class="container hidden">
+    <h2>Controle de MÃºltiplas LÃ¢mpadas</h2>
+    <select id="comodo">
+        <option value="sala">Sala</option>
+        <option value="cozinha">Cozinha</option>
+        <option value="quarto1">Quarto 1</option>
+        <option value="quarto2">Quarto 2</option>
+    </select>
+    <button onclick="alterarStatusLampada(true)">Ligar</button>
+    <button onclick="alterarStatusLampada(false)">Desligar</button>
+    <div id="statusContainer"></div>
+    <button onclick="voltarParaMain()">Voltar</button>
+</div>
+
+<div id="sensors" class="container hidden">
+    <h2>Controle de Sensores</h2>
+    <input type="number" id="tensaoSensor" placeholder="TensÃ£o (V)" min="0">
+    <input type="number" id="correnteSensor" placeholder="Corrente (A)" min="0">
+    <button onclick="calcularPotencia()">Calcular PotÃªncia</button>
+    <div class="medidor" id="potencia">
+        <div class="medidor-title">PotÃªncia: 0 W</div>
+    </div>
+    <div class="medidor" id="tensao">
+        <div class="medidor-title">TensÃ£o: 0 V</div>
+    </div>
+    <div class="medidor" id="corrente">
+        <div class="medidor-title">Corrente: 0 A</div>
+    </div>
+    <button onclick="voltarParaMain()">Voltar</button>
+</div>
+
+<div id="historico" class="container hidden">
+    <h2>HistÃ³rico de AÃ§Ãµes</h2>
+    <div id="acoes"></div>
+    <button onclick="voltarParaMain()">Voltar</button>
+    <button onclick="apagarHistorico()">Apagar HistÃ³rico</button>
+</div>
+
+<script>
+var lampadas = JSON.parse(localStorage.getItem("lampadas")) || {};
+var historicoAcoes = JSON.parse(localStorage.getItem("historicoAcoes")) || [];
+
+function login() {
+    var username = document.getElementById("username").value;
+    var password = document.getElementById("password").value;
+    if(username === "admin" && password === "123456") {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("main").classList.remove("hidden");
+        adicionarAoHistorico("Login bem-sucedido.");
+    } else {
+        document.getElementById("loginError").innerText = "Username ou senha incorretos!";
+    }
+}
+
+function mostrarControle() {
+    esconderTodosExceto("control");
+    atualizarStatusLampadas();
+}
+
+function mostrarSensores() {
+    esconderTodosExceto("sensors");
+}
+
+function mostrarHistorico() {
+    esconderTodosExceto("historico");
+    atualizarHistorico();
+}
+
+function voltarParaMain() {
+    esconderTodosExceto("main");
+}
+
+function esconderTodosExceto(id) {
+    document.querySelectorAll(".container").forEach(section => {
+        section.id === id ? section.classList.remove("hidden") : section.classList.add("hidden");
+    });
+}
+
+function alterarStatusLampada(status) {
+    var comodo = document.getElementById("comodo").value;
+    lampadas[comodo] = status;
+    adicionarAoHistorico(`LÃ¢mpada ${status ? "ligada" : "desligada"} em ${comodo}.`);
+    atualizarStatusLampadas();
+    localStorage.setItem("lampadas", JSON.stringify(lampadas));
+    alert(`LÃ¢mpada ${status ? "ligada" : "desligada"} em ${comodo}.`);
+}
+
+function atualizarStatusLampadas() {
+    var statusContainer = document.getElementById("statusContainer");
+    statusContainer.innerHTML = ''; // Limpa o status atual antes de adicionar o novo
+    Object.keys(lampadas).forEach(comodo => {
+        var status = lampadas[comodo] ? "Ligado" : "Desligado";
+        var div = document.createElement("div");
+        div.innerText = `Comodo: ${comodo}, Status: ${status}`;
+        div.className = lampadas[comodo] ? "status-ligado" : "status-desligado";
+        statusContainer.appendChild(div);
+    });
+}
+
+function calcularPotencia() {
+    var tensao = parseFloat(document.getElementById("tensaoSensor").value);
+    var corrente = parseFloat(document.getElementById("correnteSensor").value);
+    var potencia = tensao * corrente;
+    document.getElementById("potencia").getElementsByClassName("medidor-title")[0].innerText = `PotÃªncia: ${potencia} W`;
+    document.getElementById("tensao").getElementsByClassName("medidor-title")[0].innerText = `TensÃ£o: ${tensao} V`;
+    document.getElementById("corrente").getElementsByClassName("medidor-title")[0].innerText = `Corrente: ${corrente} A`;
+    adicionarAoHistorico(`PotÃªncia calculada: ${potencia}W com tensÃ£o de ${tensao}V e corrente de ${corrente}A.`);
+}
+
+function adicionarAoHistorico(acao) {
+    var agora = new Date();
+    historicoAcoes.push(`${acao} - ${agora.toLocaleString()}`);
+    salvarHistoricoNoLocalStorage();
+}
+
+function atualizarHistorico() {
+    var acoesDiv = document.getElementById("acoes");
+    acoesDiv.innerHTML = ''; // Limpa o histÃ³rico atual antes de adicionar o novo
+    historicoAcoes.forEach(acao => {
+        var div = document.createElement("div");
+        div.innerText = acao;
+        div.className = "acao";
+        acoesDiv.appendChild(div);
+    });
+}
+
+function salvarHistoricoNoLocalStorage() {
+    localStorage.setItem("historicoAcoes", JSON.stringify(historicoAcoes));
+}
+
+function carregarHistoricoDoLocalStorage() {
+    var historico = localStorage.getItem("historicoAcoes");
+    if (historico) {
+        historicoAcoes = JSON.parse(historico);
+    }
+}
+
+function salvarStatusLampadasNoLocalStorage() {
+    localStorage.setItem("lampadas", JSON.stringify(lampadas));
+}
+
+function carregarStatusLampadasDoLocalStorage() {
+    var statusLampadas = localStorage.getItem("lampadas");
+    if (statusLampadas) {
+        lampadas = JSON.parse(statusLampadas);
+        atualizarStatusLampadas();
+    }
+}
+
+// Chame essas funÃ§Ãµes quando a pÃ¡gina for carregada para carregar os dados salvos
+document.addEventListener("DOMContentLoaded", function() {
+    carregarHistoricoDoLocalStorage();
+    carregarStatusLampadasDoLocalStorage();
+});
+  // Adiciona validaÃ§Ã£o de entrada para os dados de tensÃ£o e corrente
+function validarEntradas(tensao, corrente) {
+    if (isNaN(tensao) || isNaN(corrente)) {
+        alert("Por favor, insira valores numericos validos para tensãoo e corrente.");
+        return false;
+    }
+    return true;
+}
+
+// Atualiza calcularPotencia para incluir validaÃ§Ã£o
+function calcularPotencia() {
+    var tensao = parseFloat(document.getElementById("tensaoSensor").value);
+    var corrente = parseFloat(document.getElementById("correnteSensor").value);
+    
+    // Valida as entradas antes de prosseguir
+    if (!validarEntradas(tensao, corrente)) return;
+
+    var potencia = tensao * corrente;
+    document.getElementById("potencia").getElementsByClassName("medidor-title")[0].innerText = `PotÃªncia: ${potencia} W`;
+    document.getElementById("tensao").getElementsByClassName("medidor-title")[0].innerText = `TensÃ£o: ${tensao} V`;
+    document.getElementById("corrente").getElementsByClassName("medidor-title")[0].innerText = `Corrente: ${corrente} A`;
+    adicionarAoHistorico(`PotÃªncia calculada: ${potencia}W com tensÃ£o de ${tensao}V e corrente de ${corrente}A.`);
+    atualizarHistorico(); // Atualiza o histÃ³rico automaticamente
+}
+    function apagarHistorico() {
+    // ConfirmaÃ§Ã£o antes de apagar
+    if (confirm("Tem certeza que deseja apagar todo o historico?")) {
+        historicoAcoes = []; // Limpa o array de histÃ³rico
+        salvarHistoricoNoLocalStorage(); // Atualiza o localStorage
+        atualizarHistorico(); // Atualiza a interface
+        alert("Historico apagado com sucesso.");
+    }
+}
+  </script>
+</body>
+</html>
